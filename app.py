@@ -14,7 +14,7 @@ import sacrebleu
 from torchtext.data.utils import get_tokenizer
 from torch.nn.utils.rnn import pad_sequence
 
-# ================== Transformerモデル部分（元のコード） ==================
+# ================== Transformerモデル部分 ==================
 
 class MultiHeadAttention(nn.Module):
     """マルチヘッドアテンション層"""

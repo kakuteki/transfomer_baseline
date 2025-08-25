@@ -1,0 +1,10 @@
+torch>=2.0.0
+torchtext>=0.15.0
+torch-audio
+numpy>=1.21.0
+tqdm>=4.64.0
+sacrebleu>=2.3.0
+spacy>=3.4.0
+datasets>=2.0.0
+pickle5
+transformers

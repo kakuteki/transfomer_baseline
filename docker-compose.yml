@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  transformer:
+    build: .
+    container_name: transformer_baseline
+    volumes:
+      - ./data:/app/data
+      - ./best_model.pt:/app/best_model.pt:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    stdin_open: true
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

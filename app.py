@@ -11,7 +11,7 @@ import os
 from tqdm import tqdm
 import random
 import sacrebleu
-from torchtext.data.utils import get_tokenizer
+import spacy
 from torch.nn.utils.rnn import pad_sequence
 
 # ================== Transformerモデル部分 ==================
@@ -467,8 +467,10 @@ def prepare_data():
     print("データセットを準備中...")
 
     # トークナイザー
-    spacy_de = get_tokenizer('spacy', language='de_core_news_sm')
-    spacy_en = get_tokenizer('spacy', language='en_core_web_sm')
+    nlp_de = spacy.load('de_core_news_sm')
+    nlp_en = spacy.load('en_core_web_sm')
+    spacy_de = lambda text: [token.text for token in nlp_de.tokenizer(text)]
+    spacy_en = lambda text: [token.text for token in nlp_en.tokenizer(text)]
 
     # ローカルに保存されたデータを読み込み
     data_dir = "data"
@@ -711,6 +713,8 @@ def main():
         # モデル保存
         if val_loss < best_val_loss:
             best_val_loss = val_loss
+            import os
+            os.makedirs('models', exist_ok=True)
             torch.save({
                 'model_state_dict': model.state_dict(),
                 'config': config,
@@ -718,7 +722,7 @@ def main():
                 'tgt_vocab': tgt_vocab,
                 'val_loss': val_loss,
                 'epoch': epoch
-            }, 'best_model.pt')
+            }, 'models/best_model.pt')
             print("  ベストモデルを保存しました")
 
         # 定期的にBLEUスコアを計算
@@ -730,7 +734,7 @@ def main():
     print("\n最終評価...")
 
     # ベストモデルをロード
-    checkpoint = torch.load('best_model.pt', weights_only=False)
+    checkpoint = torch.load('models/best_model.pt', weights_only=False)
     model.load_state_dict(checkpoint['model_state_dict'])
 
     # テストセットでBLEU評価
@@ -815,7 +819,8 @@ def interactive_translation(model_path='best_model.pt'):
 
     # トークナイザー
     try:
-        spacy_de = get_tokenizer('spacy', language='de_core_news_sm')
+        nlp_de = spacy.load('de_core_news_sm')
+        spacy_de = lambda text: [token.text for token in nlp_de.tokenizer(text)]
     except:
         print("ドイツ語トークナイザーが利用できません。簡易トークナイザーを使用します。")
         spacy_de = lambda x: x.lower().split()

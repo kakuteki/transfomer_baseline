@@ -6,7 +6,7 @@ services:
     container_name: transformer_baseline
     volumes:
       - ./data:/app/data
-      - ./best_model.pt:/app/best_model.pt:ro
+      - ./models:/app/models
     environment:
       - PYTHONUNBUFFERED=1
     stdin_open: true

@@ -280,7 +280,8 @@ class TranslationTransformer(nn.Module):
         max_len: int = 50,
         sos_idx: int = 2,
         eos_idx: int = 3,
-        beam_size: int = 1
+        beam_size: int = 1,
+        temperature: float = 1.0
     ) -> torch.Tensor:
         """推論時の翻訳（グリーディまたはビームサーチ）"""
         self.eval()
@@ -292,13 +293,13 @@ class TranslationTransformer(nn.Module):
         enc_output = self.encode(src, src_mask)
 
         if beam_size == 1:
-            # グリーディサーチ
+            # グリーディサーチ（温度パラメータ付き）
             tgt = torch.full((batch_size, 1), sos_idx, device=device)
 
             for _ in range(max_len - 1):
                 tgt_mask = self.create_subsequent_mask(tgt.size(1), device)
                 dec_output = self.decode(tgt, enc_output, tgt_mask, src_mask)
-                logits = self.output_projection(dec_output[:, -1:, :])
+                logits = self.output_projection(dec_output[:, -1:, :]) / temperature
                 next_token = logits.argmax(dim=-1)
                 tgt = torch.cat([tgt, next_token], dim=1)
 
@@ -308,9 +309,9 @@ class TranslationTransformer(nn.Module):
             return tgt
         else:
             # ビームサーチ（簡易版）
-            return self._beam_search(enc_output, src_mask, beam_size, max_len, sos_idx, eos_idx)
+            return self._beam_search(enc_output, src_mask, beam_size, max_len, sos_idx, eos_idx, temperature)
 
-    def _beam_search(self, enc_output, src_mask, beam_size, max_len, sos_idx, eos_idx):
+    def _beam_search(self, enc_output, src_mask, beam_size, max_len, sos_idx, eos_idx, temperature=1.0):
         """ビームサーチ実装"""
         device = enc_output.device
         batch_size = enc_output.size(0)
@@ -332,7 +333,7 @@ class TranslationTransformer(nn.Module):
 
                 tgt_mask = self.create_subsequent_mask(seq.size(1), device)
                 dec_output = self.decode(seq, enc_output, tgt_mask, src_mask)
-                logits = self.output_projection(dec_output[:, -1:, :])
+                logits = self.output_projection(dec_output[:, -1:, :]) / temperature
                 log_probs = F.log_softmax(logits, dim=-1)
 
                 topk_log_probs, topk_indices = log_probs[0, 0].topk(beam_size)
@@ -510,7 +511,7 @@ def prepare_data():
 
 # ================== 訓練関数 ==================
 
-def train_epoch(model, dataloader, optimizer, criterion, device):
+def train_epoch(model, dataloader, optimizer, scheduler, criterion, device):
     """1エポックの訓練"""
     model.train()
     total_loss = 0
@@ -536,6 +537,7 @@ def train_epoch(model, dataloader, optimizer, criterion, device):
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
+        scheduler.step()  # バッチごとにステップ
 
         total_loss += loss.item()
 
@@ -612,8 +614,8 @@ def main():
     config = {
         'd_model': 256,
         'n_heads': 8,
-        'n_encoder_layers': 1,  # 1層版
-        'n_decoder_layers': 1,  # 1層版
+        'n_encoder_layers': 6,  # エンコーダー層数
+        'n_decoder_layers': 6,  # デコーダー層数
         'd_ff': 1024,
         'dropout': 0.1,
         'batch_size': 64,
@@ -680,17 +682,64 @@ def main():
         eps=1e-9
     )
 
-    # 学習率スケジューラー（Transformer論文のwarmup）
-    def lr_schedule(step):
-        d_model = config['d_model']
-        warmup_steps = config['warmup_steps']
-        step = max(1, step)  # ゼロ除算を防ぐ
-        return (d_model ** -0.5) * min(step ** -0.5, step * warmup_steps ** -1.5)
+    # 学習率スケジューラー（Transformer論文のwarmup - ステップベース）
+    class TransformerScheduler:
+        def __init__(self, optimizer, d_model, warmup_steps):
+            self.optimizer = optimizer
+            self.d_model = d_model
+            self.warmup_steps = warmup_steps
+            self.step_num = 0
 
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_schedule)
+        def step(self):
+            self.step_num += 1
+            lr = self._get_lr()
+            for param_group in self.optimizer.param_groups:
+                param_group['lr'] = lr
 
-    # 損失関数
-    criterion = nn.CrossEntropyLoss(ignore_index=src_vocab.pad_idx)
+        def _get_lr(self):
+            step = max(1, self.step_num)
+            return (self.d_model ** -0.5) * min(step ** -0.5, step * self.warmup_steps ** -1.5)
+
+        def get_last_lr(self):
+            return [self._get_lr()]
+
+    scheduler = TransformerScheduler(optimizer, config['d_model'], config['warmup_steps'])
+
+    # 損失関数（Label smoothing追加）
+    class LabelSmoothingLoss(nn.Module):
+        def __init__(self, smoothing=0.1, pad_idx=0):
+            super().__init__()
+            self.smoothing = smoothing
+            self.pad_idx = pad_idx
+            self.confidence = 1.0 - smoothing
+
+        def forward(self, pred, target):
+            # pred: [batch_size * seq_len, vocab_size]
+            # target: [batch_size * seq_len]
+            vocab_size = pred.size(-1)
+
+            # マスク作成
+            mask = target != self.pad_idx
+
+            # One-hot encoding
+            true_dist = torch.zeros_like(pred)
+            true_dist.fill_(self.smoothing / (vocab_size - 2))  # <pad>と正解を除く
+            true_dist.scatter_(1, target.unsqueeze(1), self.confidence)
+            true_dist[:, self.pad_idx] = 0
+
+            # パディング部分をマスク
+            true_dist = true_dist * mask.unsqueeze(1)
+
+            # KL divergence
+            loss = F.kl_div(
+                F.log_softmax(pred, dim=-1),
+                true_dist,
+                reduction='none'
+            ).sum(dim=-1)
+
+            return (loss * mask).sum() / mask.sum()
+
+    criterion = LabelSmoothingLoss(smoothing=0.1, pad_idx=src_vocab.pad_idx)
 
     # 訓練
     print("\n訓練開始...")
@@ -700,8 +749,7 @@ def main():
         print(f"\nEpoch {epoch + 1}/{config['num_epochs']}")
 
         # 訓練
-        train_loss = train_epoch(model, train_loader, optimizer, criterion, device)
-        scheduler.step()
+        train_loss = train_epoch(model, train_loader, optimizer, scheduler, criterion, device)
 
         # 検証
         val_loss = evaluate(model, val_loader, criterion, device)

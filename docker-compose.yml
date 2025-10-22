@@ -7,10 +7,16 @@ services:
     volumes:
       - ./data:/app/data
       - ./models:/app/models
+      - ./checkpoints:/app/checkpoints
+      - ./logs:/app/logs
     environment:
       - PYTHONUNBUFFERED=1
+      - CUDA_VISIBLE_DEVICES=0
+      - AUTO_RESUME=true
     stdin_open: true
     tty: true
+    restart: unless-stopped
+    runtime: nvidia
     deploy:
       resources:
         reservations:
@@ -18,3 +24,4 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    shm_size: '8gb'

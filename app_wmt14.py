@@ -464,17 +464,18 @@ def collate_fn(batch):
 # ================== データ準備 ==================
 
 def prepare_data_wmt14():
-    """WMT14 EN-DEデータセットの準備"""
+    """WMT14 DE-ENデータセットの準備（Hugging Face Datasets使用）"""
     print("=" * 60)
-    print("WMT14 EN-DE Dataset Preparation")
+    print("WMT14 DE-EN Dataset Preparation")
+    print("Using Hugging Face Datasets")
     print("=" * 60)
 
     # トークナイザー
     print("\nLoading tokenizers...")
-    nlp_en = spacy.load('en_core_web_sm')
     nlp_de = spacy.load('de_core_news_sm')
-    spacy_en = lambda text: [token.text for token in nlp_en.tokenizer(text)]
+    nlp_en = spacy.load('en_core_web_sm')
     spacy_de = lambda text: [token.text for token in nlp_de.tokenizer(text)]
+    spacy_en = lambda text: [token.text for token in nlp_en.tokenizer(text)]
 
     # データディレクトリ
     data_dir = "data/wmt14"
@@ -495,103 +496,95 @@ def prepare_data_wmt14():
             test_src, test_tgt = data['test']
         print("✓ Preprocessed data loaded")
     else:
-        print("\nDownloading and processing WMT14 dataset...")
-        print("This may take several minutes on first run...")
+        print("\nDownloading WMT14 dataset from Hugging Face...")
+        print("This may take several minutes (downloading ~1.6GB)...")
 
-        try:
-            from torchtext.datasets import WMT14 as WMT14Dataset
+        from datasets import load_dataset
 
-            # データセットのダウンロード
-            train_iter, valid_iter, test_iter = WMT14Dataset(
-                root=data_dir,
-                split=('train', 'valid', 'test'),
-                language_pair=('en', 'de')
-            )
+        # WMT14 DE-ENデータセットをダウンロード
+        print("\nLoading dataset...")
+        dataset = load_dataset("wmt14", "de-en", cache_dir=data_dir)
 
-            # データをリストに変換
-            print("\nProcessing training data...")
-            train_data = list(train_iter)
-            print(f"Training samples: {len(train_data)}")
+        print(f"✓ Dataset loaded")
+        print(f"  Training samples: {len(dataset['train'])}")
+        print(f"  Validation samples: {len(dataset['validation'])}")
+        print(f"  Test samples: {len(dataset['test'])}")
 
-            print("Processing validation data...")
-            val_data = list(valid_iter)
-            print(f"Validation samples: {len(val_data)}")
+        # データサイズ制限（メモリ節約のため）
+        max_train_size = int(os.environ.get('MAX_TRAIN_SIZE', 500000))  # デフォルト50万ペア
 
-            print("Processing test data...")
-            test_data = list(test_iter)
-            print(f"Test samples: {len(test_data)}")
+        # データを抽出
+        print("\nExtracting training data...")
+        train_data = dataset['train']
 
-            # データを分離
-            train_src = [pair[0] for pair in train_data]  # English
-            train_tgt = [pair[1] for pair in train_data]  # German
-            val_src = [pair[0] for pair in val_data]
-            val_tgt = [pair[1] for pair in val_data]
-            test_src = [pair[0] for pair in test_data]
-            test_tgt = [pair[1] for pair in test_data]
+        # ランダムサンプリング
+        if len(train_data) > max_train_size:
+            print(f"Sampling {max_train_size} from {len(train_data)} training samples...")
+            indices = random.sample(range(len(train_data)), max_train_size)
+            train_data = train_data.select(indices)
 
-            # データサイズ制限（メモリ節約のため、必要に応じて調整）
-            max_train_size = int(os.environ.get('MAX_TRAIN_SIZE', 500000))  # デフォルト50万ペア
-            if len(train_src) > max_train_size:
-                print(f"\nLimiting training data to {max_train_size} samples...")
-                indices = random.sample(range(len(train_src)), max_train_size)
-                train_src = [train_src[i] for i in indices]
-                train_tgt = [train_tgt[i] for i in indices]
+        train_src = [item['translation']['de'] for item in train_data]
+        train_tgt = [item['translation']['en'] for item in train_data]
 
-            # 語彙を構築
-            print("\nBuilding vocabularies...")
-            src_vocab = Vocabulary(freq_threshold=5)  # WMT14は大規模なので閾値を上げる
-            tgt_vocab = Vocabulary(freq_threshold=5)
+        print("Extracting validation data...")
+        val_data = dataset['validation']
+        val_src = [item['translation']['de'] for item in val_data]
+        val_tgt = [item['translation']['en'] for item in val_data]
 
-            src_vocab.build_vocab(train_src, spacy_en)
-            tgt_vocab.build_vocab(train_tgt, spacy_de)
+        print("Extracting test data...")
+        test_data = dataset['test']
+        test_src = [item['translation']['de'] for item in test_data]
+        test_tgt = [item['translation']['en'] for item in test_data]
 
-            print(f"Source vocabulary size (EN): {len(src_vocab)}")
-            print(f"Target vocabulary size (DE): {len(tgt_vocab)}")
+        print(f"\nFinal dataset sizes:")
+        print(f"  Training: {len(train_src)}")
+        print(f"  Validation: {len(val_src)}")
+        print(f"  Test: {len(test_src)}")
 
-            # データを保存
-            print("\nSaving preprocessed data...")
-            with open(vocab_file, 'wb') as f:
-                pickle.dump((src_vocab, tgt_vocab), f)
-            with open(data_file, 'wb') as f:
-                pickle.dump({
-                    'train': (train_src, train_tgt),
-                    'val': (val_src, val_tgt),
-                    'test': (test_src, test_tgt)
-                }, f)
-            print("✓ Data saved")
+        # 語彙を構築
+        print("\nBuilding vocabularies...")
+        print("This may take several minutes for large datasets...")
 
-        except Exception as e:
-            print(f"\nError loading WMT14 dataset: {e}")
-            print("\nFallback: Creating dummy dataset...")
-            # ダミーデータ（開発用）
-            train_src = ["This is a test sentence."] * 1000
-            train_tgt = ["Das ist ein Testsatz."] * 1000
-            val_src = ["Validation sentence."] * 100
-            val_tgt = ["Validierungssatz."] * 100
-            test_src = ["Test sentence."] * 100
-            test_tgt = ["Testsatz."] * 100
+        src_vocab = Vocabulary(freq_threshold=5)  # WMT14は大規模なので閾値を上げる
+        tgt_vocab = Vocabulary(freq_threshold=5)
 
-            src_vocab = Vocabulary(freq_threshold=1)
-            tgt_vocab = Vocabulary(freq_threshold=1)
-            src_vocab.build_vocab(train_src, spacy_en)
-            tgt_vocab.build_vocab(train_tgt, spacy_de)
+        print("Building source vocabulary (DE)...")
+        src_vocab.build_vocab(train_src, spacy_de)
+
+        print("Building target vocabulary (EN)...")
+        tgt_vocab.build_vocab(train_tgt, spacy_en)
+
+        print(f"✓ Source vocabulary size (DE): {len(src_vocab)}")
+        print(f"✓ Target vocabulary size (EN): {len(tgt_vocab)}")
+
+        # データを保存
+        print("\nSaving preprocessed data...")
+        with open(vocab_file, 'wb') as f:
+            pickle.dump((src_vocab, tgt_vocab), f)
+        with open(data_file, 'wb') as f:
+            pickle.dump({
+                'train': (train_src, train_tgt),
+                'val': (val_src, val_tgt),
+                'test': (test_src, test_tgt)
+            }, f)
+        print("✓ Data saved to disk")
 
     # データセット作成
-    print("\nCreating datasets...")
-    train_dataset = TranslationDataset(train_src, train_tgt, src_vocab, tgt_vocab, spacy_en, spacy_de)
-    val_dataset = TranslationDataset(val_src, val_tgt, src_vocab, tgt_vocab, spacy_en, spacy_de)
-    test_dataset = TranslationDataset(test_src, test_tgt, src_vocab, tgt_vocab, spacy_en, spacy_de)
+    print("\nCreating PyTorch datasets...")
+    train_dataset = TranslationDataset(train_src, train_tgt, src_vocab, tgt_vocab, spacy_de, spacy_en)
+    val_dataset = TranslationDataset(val_src, val_tgt, src_vocab, tgt_vocab, spacy_de, spacy_en)
+    test_dataset = TranslationDataset(test_src, test_tgt, src_vocab, tgt_vocab, spacy_de, spacy_en)
 
     print("\n" + "=" * 60)
-    print(f"Dataset: WMT14 EN→DE")
+    print(f"Dataset: WMT14 DE→EN")
     print(f"Training samples: {len(train_dataset)}")
     print(f"Validation samples: {len(val_dataset)}")
     print(f"Test samples: {len(test_dataset)}")
-    print(f"Source vocab (EN): {len(src_vocab)}")
-    print(f"Target vocab (DE): {len(tgt_vocab)}")
+    print(f"Source vocab (DE): {len(src_vocab)}")
+    print(f"Target vocab (EN): {len(tgt_vocab)}")
     print("=" * 60)
 
-    return train_dataset, val_dataset, test_dataset, src_vocab, tgt_vocab, spacy_en, spacy_de
+    return train_dataset, val_dataset, test_dataset, src_vocab, tgt_vocab, spacy_de, spacy_en
 
 
 # ================== 訓練関数 ==================

@@ -159,7 +159,7 @@ class TranslationTransformer(nn.Module):
         n_encoder_layers: int = 1,
         n_decoder_layers: int = 1,
         d_ff: int = 1024,
-        max_seq_len: int = 2048,
+        max_seq_len: int = 5000,
         dropout: float = 0.1,
         pad_idx: int = 0
     ):
@@ -705,7 +705,7 @@ def main():
         'n_decoder_layers': 6,  # デコーダー層数
         'd_ff': 2048,  # より大きなFFN
         'dropout': 0.1,
-        'batch_size': 32,  # より大規模なデータのため小さめ
+        'batch_size': 8,  # メモリ節約のため削減
         'num_epochs': 50,  # WMT14用
         'learning_rate': 1e-3,
         'warmup_steps': 8000,  # より長いwarmup

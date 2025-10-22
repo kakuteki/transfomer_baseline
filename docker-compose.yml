@@ -34,9 +34,9 @@ services:
     command: python3 app_wmt14.py
     volumes:
       - ./data:/app/data
-      - ./models:/app/models_wmt14
-      - ./checkpoints:/app/checkpoints_wmt14
-      - ./logs:/app/logs_wmt14
+      - ./models_wmt14:/app/models_wmt14
+      - ./checkpoints_wmt14:/app/checkpoints_wmt14
+      - ./logs_wmt14:/app/logs_wmt14
     environment:
       - PYTHONUNBUFFERED=1
       - CUDA_VISIBLE_DEVICES=0

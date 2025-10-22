@@ -159,7 +159,7 @@ class TranslationTransformer(nn.Module):
         n_encoder_layers: int = 1,
         n_decoder_layers: int = 1,
         d_ff: int = 1024,
-        max_seq_len: int = 512,
+        max_seq_len: int = 2048,
         dropout: float = 0.1,
         pad_idx: int = 0
     ):

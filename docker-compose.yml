@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # Multi30k学習用（軽量版）
   transformer:
     build: .
     container_name: transformer_baseline
@@ -25,3 +26,31 @@ services:
               count: all
               capabilities: [gpu]
     shm_size: '8gb'
+
+  # WMT14学習用（大規模版）
+  transformer-wmt14:
+    build: .
+    container_name: transformer_wmt14
+    command: python3 app_wmt14.py
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models_wmt14
+      - ./checkpoints:/app/checkpoints_wmt14
+      - ./logs:/app/logs_wmt14
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CUDA_VISIBLE_DEVICES=0
+      - AUTO_RESUME=true
+      - MAX_TRAIN_SIZE=500000  # 訓練データサイズ制限（50万ペア）
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    shm_size: '16gb'  # より大きな共有メモリ

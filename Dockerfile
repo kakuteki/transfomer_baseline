@@ -27,10 +27,12 @@ RUN python3 -m spacy download de_core_news_sm && \
 # アプリケーションファイルのコピー
 COPY app.py .
 COPY app_enhanced.py .
+COPY app_wmt14.py .
 COPY download_data.py .
+COPY download_wmt14.py .
 
 # ディレクトリの作成
-RUN mkdir -p data models checkpoints logs
+RUN mkdir -p data data/wmt14 models models_wmt14 checkpoints checkpoints_wmt14 logs logs_wmt14
 
 # 環境変数
 ENV PYTHONUNBUFFERED=1

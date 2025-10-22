@@ -6,3 +6,5 @@ spacy>=3.4.0
 datasets>=2.0.0
 pickle5
 transformers
+torchtext>=0.18.0
+portalocker

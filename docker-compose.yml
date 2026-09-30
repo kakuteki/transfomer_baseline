@@ -15,7 +15,7 @@ services:
       - AUTO_RESUME=true
     stdin_open: true
     tty: true
-    restart: unless-stopped
+    restart: on-failure  # unless-stopped だと学習を正常に終えても再起動し、最終評価を延々くり返す
     runtime: nvidia
     deploy:
       resources:

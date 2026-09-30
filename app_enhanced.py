@@ -616,6 +616,13 @@ def list_checkpoints(checkpoint_dir):
     return [f for _, f in sorted(found)]
 
 
+def save_atomic(obj, path):
+    """一時ファイルに書いてから置き換える。保存中に落ちても壊れたファイルが本来の名前で残らない"""
+    tmp_path = path + '.tmp'
+    torch.save(obj, tmp_path)
+    os.replace(tmp_path, path)
+
+
 # ================== メイン関数 ==================
 
 def main():
@@ -855,7 +862,7 @@ def main():
         # ベストモデル保存
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            torch.save({
+            save_atomic({
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'scheduler_step': scheduler.step_num,
@@ -871,7 +878,7 @@ def main():
 
         # チェックポイント保存（毎エポック）
         checkpoint_path = os.path.join(config['checkpoint_dir'], f'checkpoint_epoch_{epoch + 1}.pt')
-        torch.save({
+        save_atomic({
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'scheduler_step': scheduler.step_num,

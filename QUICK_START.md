@@ -89,7 +89,7 @@ sudo docker-compose up -d
 ### 3. docker-compose.yml
 - ✅ checkpoints, logsボリュームマウント
 - ✅ NVIDIA runtime設定
-- ✅ 自動再起動（restart: unless-stopped）
+- ✅ 異常終了時の自動再起動（restart: on-failure。正常終了では再起動しない）
 - ✅ 共有メモリ8GB設定
 - ✅ AUTO_RESUME環境変数
 

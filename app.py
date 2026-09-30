@@ -837,7 +837,7 @@ def main():
 
 # ================== インタラクティブ翻訳 ==================
 
-def interactive_translation(model_path='best_model.pt'):
+def interactive_translation(model_path='models/best_model.pt'):
     """インタラクティブな翻訳デモ"""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -886,7 +886,7 @@ def interactive_translation(model_path='best_model.pt'):
             continue
 
         # 前処理
-        src_indices = [src_vocab.sos_idx] + src_vocab.encode(german_text, spacy_de) + [src_vocab.eos_idx]
+        src_indices = src_vocab.encode(german_text, spacy_de)  # 学習時と同じく <sos>/<eos> は付けない
         src_tensor = torch.tensor([src_indices]).to(device)
 
         # 翻訳

@@ -607,8 +607,13 @@ def calculate_bleu(model, dataloader, tgt_vocab, device, beam_size=1):
 
 def list_checkpoints(checkpoint_dir):
     """checkpoint_epoch_N.pt をエポック番号の昇順で返す（文字列順だと 10 が 9 より前に来る）"""
-    files = [f for f in os.listdir(checkpoint_dir) if f.startswith('checkpoint_epoch_')]
-    return sorted(files, key=lambda f: int(f[len('checkpoint_epoch_'):].split('.')[0]))
+    import re
+    found = []
+    for f in os.listdir(checkpoint_dir):
+        m = re.fullmatch(r'checkpoint_epoch_(\d+)\.pt', f)  # 手で置いた別名(.bak など)は拾わない
+        if m:
+            found.append((int(m.group(1)), f))
+    return [f for _, f in sorted(found)]
 
 
 # ================== メイン関数 ==================

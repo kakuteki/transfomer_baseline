@@ -107,7 +107,7 @@ python app.py interactive
 - `app.py`: メインの訓練・評価スクリプト
 - `download_data.py`: Multi30kデータセットのダウンロード
 - `data/`: データセットの保存ディレクトリ
-- `best_model.pt`: 訓練された最良モデル
+- `models/best_model.pt`: 訓練された最良モデル
 - `requirements.txt`: 必要なライブラリ一覧
 
 ## モデル構成

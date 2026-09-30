@@ -603,6 +603,19 @@ def calculate_bleu(model, dataloader, tgt_vocab, device, beam_size=1):
     return bleu.score
 
 
+# ================== チェックポイント ==================
+
+def list_checkpoints(checkpoint_dir):
+    """checkpoint_epoch_N.pt をエポック番号の昇順で返す（文字列順だと 10 が 9 より前に来る）"""
+    import re
+    found = []
+    for f in os.listdir(checkpoint_dir):
+        m = re.fullmatch(r'checkpoint_epoch_(\d+)\.pt', f)  # 手で置いた別名(.bak など)は拾わない
+        if m:
+            found.append((int(m.group(1)), f))
+    return [f for _, f in sorted(found)]
+
+
 # ================== メイン関数 ==================
 
 def main():
@@ -643,7 +656,7 @@ def main():
 
     # チェックポイントの自動検出と再開
     auto_resume = os.environ.get('AUTO_RESUME', 'true').lower() == 'true'
-    checkpoint_files = sorted([f for f in os.listdir(config['checkpoint_dir']) if f.startswith('checkpoint_epoch_')])
+    checkpoint_files = list_checkpoints(config['checkpoint_dir'])
     if checkpoint_files and config['resume_from'] is None:
         latest_checkpoint = os.path.join(config['checkpoint_dir'], checkpoint_files[-1])
         print(f"\n最新のチェックポイントを検出: {latest_checkpoint}")
@@ -872,7 +885,7 @@ def main():
         }, checkpoint_path)
 
         # 古いチェックポイントを削除（最新3つのみ保持）
-        checkpoint_files = sorted([f for f in os.listdir(config['checkpoint_dir']) if f.startswith('checkpoint_epoch_')])
+        checkpoint_files = list_checkpoints(config['checkpoint_dir'])
         if len(checkpoint_files) > 3:
             for old_checkpoint in checkpoint_files[:-3]:
                 os.remove(os.path.join(config['checkpoint_dir'], old_checkpoint))
@@ -936,7 +949,7 @@ def main():
 
 # ================== インタラクティブ翻訳 ==================
 
-def interactive_translation(model_path='best_model.pt'):
+def interactive_translation(model_path='models/best_model.pt'):
     """インタラクティブな翻訳デモ"""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -985,7 +998,7 @@ def interactive_translation(model_path='best_model.pt'):
             continue
 
         # 前処理
-        src_indices = [src_vocab.sos_idx] + src_vocab.encode(german_text, spacy_de) + [src_vocab.eos_idx]
+        src_indices = src_vocab.encode(german_text, spacy_de)  # 学習時と同じく <sos>/<eos> は付けない
         src_tensor = torch.tensor([src_indices]).to(device)
 
         # 翻訳

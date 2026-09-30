@@ -619,8 +619,16 @@ def list_checkpoints(checkpoint_dir):
 def save_atomic(obj, path):
     """一時ファイルに書いてから置き換える。保存中に落ちても壊れたファイルが本来の名前で残らない"""
     tmp_path = path + '.tmp'
-    torch.save(obj, tmp_path)
-    os.replace(tmp_path, path)
+    try:
+        with open(tmp_path, 'wb') as f:
+            torch.save(obj, f)
+            f.flush()
+            os.fsync(f.fileno())  # 電源断でも rename だけ先に残って中身が空、にならないように
+        os.replace(tmp_path, path)
+    except BaseException:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise
 
 
 # ================== メイン関数 ==================

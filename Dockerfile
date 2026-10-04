@@ -1,4 +1,5 @@
-FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04
+# CUDA 12.1.0 のイメージは配布元の方針で EOL・削除予定。torch(pip) が同梱する CUDA 13.0 系に合わせる
+FROM nvidia/cuda:13.0.3-cudnn-runtime-ubuntu22.04
 
 WORKDIR /app
 

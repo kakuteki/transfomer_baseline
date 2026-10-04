@@ -122,7 +122,7 @@ python app.py interactive
 - **dropout**: 0.1
 - **batch_size**: 64
 - **num_epochs**: 100 (app_enhanced.py)
-- **learning_rate**: 1e-3 (warmupスケジュール付き)
+- **lr_factor**: 1.0（学習率は論文の warmup 式 `d_model^-0.5 * min(step^-0.5, step * warmup_steps^-1.5)` で決まり、これに掛ける倍率。d_model=256・warmup_steps=4000 のとき最大 約9.9e-4）
 - **warmup_steps**: 4000
 
 ### アーキテクチャ

@@ -65,7 +65,7 @@ docker-compose build
 #### 2. データセットのダウンロード
 
 ```bash
-docker-compose run --rm transformer python download_data.py
+docker-compose run --rm transformer python3 download_data.py
 ```
 
 #### 3. モデルの訓練
@@ -77,7 +77,7 @@ docker-compose run --rm transformer
 #### 4. インタラクティブ翻訳
 
 ```bash
-docker-compose run --rm transformer python app.py interactive
+docker-compose run --rm transformer python3 app.py interactive
 ```
 
 **注意**: GPU非対応環境の場合は、`docker-compose.yml`の`deploy`セクションを削除してください。

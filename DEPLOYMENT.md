@@ -187,7 +187,7 @@ transformer_baseline/
 nvidia-smi
 
 # Docker で GPU が使えるか確認
-sudo docker run --rm --gpus all nvidia/cuda:12.1.0-base-ubuntu22.04 nvidia-smi
+sudo docker run --rm --gpus all nvidia/cuda:13.0.3-base-ubuntu22.04 nvidia-smi
 ```
 
 ### メモリ不足エラー

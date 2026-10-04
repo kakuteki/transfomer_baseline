@@ -82,7 +82,7 @@ sudo docker-compose up -d
 - ✅ 100エポックまでの長期学習対応
 
 ### 2. Dockerfile
-- ✅ NVIDIA CUDAベースイメージ（12.1.0）
+- ✅ NVIDIA CUDAベースイメージ（13.0.3。pip の torch が同梱する CUDA 13.0 に合わせた版）
 - ✅ GPU対応
 - ✅ checkpoints, logsディレクトリ作成
 

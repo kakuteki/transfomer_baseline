@@ -74,8 +74,7 @@ class EncoderLayer(nn.Module):
             nn.Linear(d_model, d_ff),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(d_ff, d_model),
-            nn.Dropout(dropout)
+            nn.Linear(d_ff, d_model)
         )
         self.norm2 = nn.LayerNorm(d_model)
 
@@ -657,7 +656,7 @@ def main():
         'dropout': 0.1,
         'batch_size': 64,
         'num_epochs': 100,  # より長い学習
-        'learning_rate': 1e-3,
+        'lr_factor': 1.0,  # 学習率の倍率（論文の warmup 式に掛ける。2.0 で全ステップ2倍）
         'warmup_steps': 4000,
         'checkpoint_dir': 'checkpoints',
         'log_dir': 'logs',
@@ -736,33 +735,38 @@ def main():
     # 最適化
     optimizer = torch.optim.Adam(
         model.parameters(),
-        lr=config['learning_rate'],
+        lr=0.0,  # 実際の値は TransformerScheduler が毎ステップ設定する
         betas=(0.9, 0.98),
         eps=1e-9
     )
 
     # 学習率スケジューラー（Transformer論文のwarmup - ステップベース）
     class TransformerScheduler:
-        def __init__(self, optimizer, d_model, warmup_steps):
+        def __init__(self, optimizer, d_model, warmup_steps, lr_factor=1.0):
             self.optimizer = optimizer
             self.d_model = d_model
             self.warmup_steps = warmup_steps
+            self.lr_factor = lr_factor
             self.step_num = 0
+            self._set_lr()  # 最初の1ステップも warmup 式の値で更新する
 
         def step(self):
             self.step_num += 1
+            self._set_lr()
+
+        def _set_lr(self):
             lr = self._get_lr()
             for param_group in self.optimizer.param_groups:
                 param_group['lr'] = lr
 
         def _get_lr(self):
             step = max(1, self.step_num)
-            return (self.d_model ** -0.5) * min(step ** -0.5, step * self.warmup_steps ** -1.5)
+            return self.lr_factor * (self.d_model ** -0.5) * min(step ** -0.5, step * self.warmup_steps ** -1.5)
 
         def get_last_lr(self):
             return [self._get_lr()]
 
-    scheduler = TransformerScheduler(optimizer, config['d_model'], config['warmup_steps'])
+    scheduler = TransformerScheduler(optimizer, config['d_model'], config['warmup_steps'], config['lr_factor'])
 
     # 損失関数（Label smoothing追加）
     class LabelSmoothingLoss(nn.Module):

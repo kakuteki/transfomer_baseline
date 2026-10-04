@@ -82,6 +82,8 @@ docker-compose run --rm transformer python3 app.py interactive
 
 **注意**: GPU非対応環境の場合は、`docker-compose.yml`の`deploy`セクションを削除してください。
 
+**GPU ドライバ**: pip で入る PyTorch（2.14 時点）は CUDA 13.0 を同梱しているため、ホストの NVIDIA ドライバは CUDA 13.0 対応版（R580 以降）が必要です。`nvidia-smi` の右上の「CUDA Version」が 13.0 以上か確認してください。これより古いドライバでは、GPU 付きで起動したときにコンテナ自体が起動しません（土台イメージが `cuda>=13.0` を要求するため）。将来 `pip` で入る PyTorch の CUDA が 13 系以外に変わったら、`Dockerfile` の土台イメージもそれに合わせて更新してください。
+
 ### ローカル環境での実行
 
 #### 1. データセットのダウンロード
